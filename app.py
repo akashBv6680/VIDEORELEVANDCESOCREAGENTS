@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 from youtube_transcript_api import YouTubeTranscriptApi
 import re
 
-# --- UPDATED GEMINI CONFIGURATION ---
+# --- UPDATED GEMINI CONFIGURATION (The fix for your 404 error) ---
 # Use the recommended, active model: gemini-2.5-flash
 GEMINI_MODEL = "gemini-2.5-flash"
 # Use the stable API version
