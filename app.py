@@ -5,9 +5,9 @@ import plotly.graph_objects as go
 from youtube_transcript_api import YouTubeTranscriptApi
 import re
 
-# Use official Gemini free model: gemini-pro
-GEMINI_MODEL = "gemini-pro"
-GEMINI_API_VERSION = "v1"
+# Use Gemini Flash free model
+GEMINI_MODEL = "gemini-1.0-flash"
+GEMINI_API_VERSION = "v1beta"
 
 def fetch_youtube_transcript(video_url):
     try:
@@ -36,7 +36,7 @@ def call_gemini(prompt, api_key):
         try:
             return output["candidates"][0]["content"]["parts"][0]["text"]
         except Exception:
-            return "No response from Gemini."
+            return "No response from Gemini Flash."
     return f"Gemini API Error: {res.status_code} - {res.text}"
 
 def semantic_similarity(text1, text2, api_key):
@@ -69,8 +69,8 @@ def detect_promotional_segments(transcript, api_key):
     )
     return call_gemini(prompt, api_key)
 
-st.set_page_config(page_title="Video Relevance Scorer+", layout="wide")
-st.title("🎬 Video Relevance Scorer+ (Gemini Free Model Working)")
+st.set_page_config(page_title="Video Relevance Scorer+ (Gemini Flash)", layout="wide")
+st.title("🎬 Video Relevance Scorer+ (Gemini Flash, Free Model)")
 
 with st.form("video_form"):
     input_mode = st.radio("Input Mode", ["Manual Transcript", "YouTube URL"])
