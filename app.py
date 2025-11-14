@@ -2,24 +2,33 @@ import streamlit as st
 import requests
 import numpy as np
 import plotly.graph_objects as go
-
 from youtube_transcript_api import YouTubeTranscriptApi
 import re
 
+# Use official Gemini free model: gemini-pro
+GEMINI_MODEL = "gemini-pro"
+GEMINI_API_VERSION = "v1"
+
 def fetch_youtube_transcript(video_url):
     try:
-        video_id = re.search(r"(?:v=|be/|embed/)([\w-]+)", video_url).group(1)
+        match = re.search(r"(?:v=|be/|embed/)([\w-]+)", video_url)
+        video_id = match.group(1) if match else video_url.split("v=")[-1]
         transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['en'])
         full_text = " ".join([seg['text'] for seg in transcript])
+        segments = transcript
         timestamps = [seg['start'] for seg in transcript]
-        return full_text, transcript, timestamps
+        return full_text, segments, timestamps
     except Exception as e:
-        return "Could not extract transcript.", [], []
+        return f"Could not extract transcript: {e}", [], []
 
 def call_gemini(prompt, api_key):
-    GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.0-pro-latest:generateContent"
+    GEMINI_API_URL = f"https://generativelanguage.googleapis.com/{GEMINI_API_VERSION}/models/{GEMINI_MODEL}:generateContent"
     headers = {"Content-Type": "application/json"}
-    data = {"contents": [{"parts": [{"text": prompt}]}]}
+    data = {
+        "contents": [
+            {"parts": [{"text": prompt}]}
+        ]
+    }
     endpoint = f"{GEMINI_API_URL}?key={api_key}"
     res = requests.post(endpoint, headers=headers, json=data)
     if res.status_code == 200:
@@ -31,14 +40,20 @@ def call_gemini(prompt, api_key):
     return f"Gemini API Error: {res.status_code} - {res.text}"
 
 def semantic_similarity(text1, text2, api_key):
-    prompt = f"Rate the semantic similarity (0 to 1) between:\nText 1: {text1}\nText 2: {text2}\nReturn only the score."
+    prompt = (
+        f"From 0 (no match) to 1 (perfect match), how semantically similar are these?\n"
+        f"Text 1: {text1}\nText 2: {text2}\n"
+        f"Respond with one float number only."
+    )
     response = call_gemini(prompt, api_key)
     try:
-        score = float(response.strip().split()[0])
-        score = max(0.0, min(1.0, score))
+        # Extract first float in response
+        import re
+        m = re.search(r"([0-9]*\.?[0-9]+)", response)
+        score = float(m.group(1)) if m else 0
+        return max(0.0, min(1.0, score))
     except Exception:
-        score = 0.0
-    return score
+        return 0.0
 
 def segment_scores(transcript_segments, title, api_key):
     scores = []
@@ -49,13 +64,13 @@ def segment_scores(transcript_segments, title, api_key):
 
 def detect_promotional_segments(transcript, api_key):
     prompt = (
-        "Identify any promotional, off-topic, or filler content in the following transcript. "
-        "List timestamps or segment text. If nothing found, reply 'None'.\n\nTranscript:\n" + transcript
+        "Identify any promotional, off-topic, or filler content in this transcript. "
+        "List sentences or phrases. If nothing found, say 'None'.\n\nTranscript:\n" + transcript
     )
     return call_gemini(prompt, api_key)
 
 st.set_page_config(page_title="Video Relevance Scorer+", layout="wide")
-st.title("🎬 Video Relevance Scorer+ (with Heatmap & YouTube Transcript)")
+st.title("🎬 Video Relevance Scorer+ (Gemini Free Model Working)")
 
 with st.form("video_form"):
     input_mode = st.radio("Input Mode", ["Manual Transcript", "YouTube URL"])
@@ -76,11 +91,10 @@ with st.form("video_form"):
             transcript, transcript_segments, timestamps = fetch_youtube_transcript(yt_url)
             st.markdown("Extracted YouTube Transcript (English):")
             st.code(transcript)
-    model_choice = st.selectbox("Model", ["Gemini (Google)", "OpenAI GPT (future extension)"])
     gemini_api_key = st.secrets.get("GEMINI_API_KEY", st.text_input("Enter your Gemini API Key:", type="password"))
     submitted = st.form_submit_button("Evaluate Video")
 
-if submitted and transcript and video_title:
+if submitted and transcript and video_title and gemini_api_key:
     api_key = gemini_api_key
     st.header("Relevance Analysis")
 
@@ -117,4 +131,3 @@ if submitted and transcript and video_title:
     )
     explanation = call_gemini(justify_prompt, api_key)
     st.info(f"**Justification:** {explanation}")
-
