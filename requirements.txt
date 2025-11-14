@@ -1,0 +1,5 @@
+streamlit>=1.25
+requests>=2.31
+numpy>=1.25
+plotly>=5.18
+youtube-transcript-api>=0.4.6
