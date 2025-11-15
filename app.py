@@ -2,10 +2,10 @@ import streamlit as st
 import requests
 import numpy as np
 import plotly.graph_objects as go
-from youtube_transcript_api import YouTubeTranscriptApi
 import re
+from youtube_transcript_api import YouTubeTranscriptApi
 
-# --- UPDATED GEMINI CONFIGURATION (The fix for your 404 error) ---
+# --- UPDATED GEMINI CONFIGURATION ---
 # Use the recommended, active model: gemini-2.5-flash
 GEMINI_MODEL = "gemini-2.5-flash"
 # Use the stable API version
@@ -27,7 +27,8 @@ def fetch_youtube_transcript(video_url):
         timestamps = [seg['start'] for seg in transcript]
         return full_text, segments, timestamps
     except Exception as e:
-        return f"Could not extract transcript: {e}", [], []
+        # This will now correctly show the specific library error if it persists
+        return f"Could not extract transcript: {type(e).__name__}: {e}", [], []
 
 def call_gemini(prompt, api_key):
     """Calls the Gemini API to get content generation."""
@@ -38,8 +39,7 @@ def call_gemini(prompt, api_key):
             {"parts": [{"text": prompt}]}
         ]
     }
-    # Note: Using the API Key directly in the URL query parameter for simplicity 
-    # in this Streamlit example, though it's often preferred in the header.
+    # Using the API Key directly in the URL query parameter
     endpoint = f"{GEMINI_API_URL}?key={api_key}"
     
     try:
@@ -124,8 +124,13 @@ with st.form("video_form"):
                 transcript = "" # Clear transcript to prevent submission
 
     st.markdown("### 2. Enter API Key")
-    # Priority: st.secrets > text_input
-    gemini_api_key = st.secrets.get("GEMINI_API_KEY", st.text_input("Enter your Gemini API Key:", type="password", help="The key will not be stored."))
+    # Using secrets.toml for API key is the best practice for Streamlit Community Cloud
+    if "GEMINI_API_KEY" in st.secrets:
+        gemini_api_key = st.secrets["GEMINI_API_KEY"]
+        st.info("Using API key from `st.secrets`.")
+    else:
+        # Fallback to manual input for local development
+        gemini_api_key = st.text_input("Enter your Gemini API Key:", type="password", help="The key will not be stored.")
     
     submitted = st.form_submit_button("🚀 Evaluate Video")
 
@@ -133,8 +138,9 @@ with st.form("video_form"):
 if submitted and transcript and video_title and gemini_api_key:
     api_key = gemini_api_key
     
-    if not api_key.startswith("AIza"):
-        st.error("Invalid API Key format. Please ensure you've entered a valid Gemini API Key.")
+    # Basic check to ensure the key looks plausible before calling
+    if not api_key.startswith("AIza") and len(api_key) < 30:
+        st.error("Invalid or incomplete API Key. Please ensure you've entered a valid Gemini API Key.")
     else:
         st.header("📊 Relevance Analysis Results")
 
@@ -154,7 +160,7 @@ if submitted and transcript and video_title and gemini_api_key:
         if scores:
             fig = go.Figure(data=go.Heatmap(
                 z=[scores],
-                x=[round(s, 2) for s in timestamps], # Use actual timestamps for X-axis
+                x=[round(s, 2) for s in timestamps], 
                 y=["Relevance to Title"],
                 hovertext=[f"Time: {round(timestamps[i], 1)}s, Score: {round(scores[i], 2)}, Text: {transcript_segments[i]['text'][:50]}..." for i in range(len(scores))],
                 coloraxis="coloraxis"
