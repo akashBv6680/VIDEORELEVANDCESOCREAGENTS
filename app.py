@@ -69,7 +69,7 @@ def detect_promotional_segments(transcript, api_key):
     return call_gemini(prompt, api_key)
 
 st.set_page_config(page_title="Video Relevance Scorer+ (Gemini 2.5 Flash)", layout="wide")
-st.title("🎬 Video Relevance Scorer+ (Gemini 2.5 Flash Model, Free Tier)")
+st.title("🎬 Video Relevance Scorer ")
 
 with st.form("video_form"):
     input_mode = st.radio("Input Mode", ["Manual Transcript", "YouTube URL"])
